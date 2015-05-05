@@ -44,9 +44,21 @@ server.route({
 
 server.route({
     method: 'GET',
-    path: '/plants',
+    path: '/devices',
     handler: function (request, reply) {
-        reply(JSON.stringify(['Kaktus', 'Tomate', 'Farn']));
+        var devices = [
+            {
+                "name": "Arduino_1",
+                "config": "Kaktus",
+                "status": "not connected"
+            },
+            {
+                "name": "Arduino_2",
+                "config": "Tomate",
+                "status": "connected"
+            }
+        ];
+        reply(JSON.stringify(devices));
     }
 });
 
