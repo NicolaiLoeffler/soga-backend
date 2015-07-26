@@ -9,6 +9,7 @@
   "author": "Nicolai Löffler",
   "license": "BSD-2-Clause",
   "dependencies": {
-    "hapi": "~8.4.0"
+    "hapi": "~8.4.0",
+    "mongodb": "^2.0.39",
   }
 }

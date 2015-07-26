@@ -1,17 +1,18 @@
 var Hapi = require('hapi');
+var MongoClient = require('mongodb').MongoClient;
 
 var server = new Hapi.Server();
-
-fs = require('fs');
-
-
-var configs = require('./configs.json');
+var collection;
 
 
-/*fs.writeFile('configs.json', JSON.stringify(test), function (err) {
-  if (err) return console.log(err);
-  console.log('Hello World > helloworld.txt');
-});*/
+// Connect to the db
+MongoClient.connect("mongodb://localhost:27017/exampleDb", function(err, db) {
+    if(!err) {
+        console.log("Connected to MondoDB");
+        db.dropDatabase();
+        collection = db.collection('test', function(err, collection) {});
+    }
+});
 
 server.connection({
     port: 3000,
@@ -26,7 +27,13 @@ server.route({
     method: 'GET',
     path: '/configs',
     handler: function (request, reply) {
-        reply(Object.keys(configs));
+        collection.find().toArray(function(err, items) {
+            if(err){
+                console.log('bad stuff happend');
+            } else {
+                reply(items);
+            }
+        });
     }
 });
 
@@ -39,6 +46,16 @@ server.route({
             "moisture": "30",
         }
         reply(config);
+    }
+});
+
+server.route({
+    method: 'DELETE',
+    path: '/configs/{name}',
+    handler: function (request, reply) {
+      console.info(request.params.name);
+      collection.remove({'name':request.params.name});
+      reply();
     }
 });
 
@@ -67,11 +84,7 @@ server.route({
     path: '/newConfig',
     handler: function  (request, reply) {
         var configName = Object.keys(request.payload)[0];
-        if(Object.keys(configs).indexOf(Object.keys(request.payload)[0]) > -1) {
-            console.log("Already config with this name");
-        } else {
-            console.log(request.payload);
-        }
+        collection.insert(request.payload);
         reply();
     }
 });
