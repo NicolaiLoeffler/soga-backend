@@ -1,6 +1,7 @@
 var Hapi = require('hapi');
 var _ = require('lodash');
 var MongoClient = require('mongodb').MongoClient;
+var ObjectID = require('mongodb').ObjectID;
 
 var server = new Hapi.Server();
 var confCollection;
@@ -42,6 +43,7 @@ server.route({
         console.log('bad stuff happend');
         return;
       } else {
+        console.info(items);
         reply(_.map(items, 'name'));
       }
     });
@@ -77,6 +79,7 @@ server.route({
   path: '/configs',
   handler: function  (request, reply) {
     console.info(request.payload);
+    request.payload._id = new ObjectID(request.payload._id);
     confCollection.save(request.payload);
     reply();
   }
@@ -106,7 +109,6 @@ server.route({
   method: 'POST',
   path: '/newConfig',
   handler: function  (request, reply) {
-    request.payload._id = request.payload.name;
     confCollection.save(request.payload);
     console.info(request.payload);
     reply();
