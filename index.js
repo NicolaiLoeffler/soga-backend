@@ -71,6 +71,17 @@ server.route({
   }
 });
 
+
+server.route({
+  method: 'PUT',
+  path: '/configs',
+  handler: function  (request, reply) {
+    console.info(request.payload);
+    confCollection.save(request.payload);
+    reply();
+  }
+});
+
 server.route({
   method: 'GET',
   path: '/devices',
@@ -95,12 +106,12 @@ server.route({
   method: 'POST',
   path: '/newConfig',
   handler: function  (request, reply) {
-    var configName = Object.keys(request.payload)[0];
-    confCollection.insert(request.payload);
+    request.payload._id = request.payload.name;
+    confCollection.save(request.payload);
+    console.info(request.payload);
     reply();
   }
 });
-
 
 server.start(function () {
   console.log('Server running at:', server.info.uri);
