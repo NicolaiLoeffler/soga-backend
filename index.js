@@ -5,6 +5,7 @@ var ObjectID = require('mongodb').ObjectID;
 
 var server = new Hapi.Server();
 var confCollection;
+var deviceCollection;
 
 
 // Connect to the db
@@ -14,13 +15,22 @@ MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
     db.dropDatabase();
     confCollection = db.collection('configurations', function(err, collection) {
       if(err) {
-        console.error('couldnt get collection');
+        console.error(err);
+      }
+    });
+    deviceCollection = db.collection('devices', function(err, collection) {
+      if(err) {
+        console.error(err);
       } else {
-        console.log('got collection configuration');
+        collection.insert({
+          "name": "Arduino_2",
+          "config": "Tomate",
+          "status": "connected",
+          "waterlevel": "50"
+        });
       }
     });
   } else {
-    console.log('failed connection to MongoDB');
     console.log(err);
   }
 });
@@ -73,7 +83,6 @@ server.route({
   }
 });
 
-
 server.route({
   method: 'PUT',
   path: '/configs',
@@ -89,21 +98,15 @@ server.route({
   method: 'GET',
   path: '/devices',
   handler: function (request, reply) {
-    var devices = [
-      {
-        "name": "Arduino_1",
-        "config": "Kaktus",
-        "status": "not connected",
-        "waterlevel": "70"
-      },
-      {
-        "name": "Arduino_2",
-        "config": "Tomate",
-        "status": "connected",
-        "waterlevel": "50"
+    deviceCollection.find().toArray(function(err, items) {
+      if(err){
+        console.log('bad stuff happend');
+        return;
+      } else {
+        console.info(items);
+        reply(items);
       }
-    ];
-    reply(JSON.stringify(devices));
+    });
   }
 });
 
