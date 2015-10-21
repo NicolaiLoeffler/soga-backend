@@ -93,12 +93,14 @@ server.route({
       {
         "name": "Arduino_1",
         "config": "Kaktus",
-        "status": "not connected"
+        "status": "not connected",
+        "waterlevel": "70"
       },
       {
         "name": "Arduino_2",
         "config": "Tomate",
-        "status": "connected"
+        "status": "connected",
+        "waterlevel": "50"
       }
     ];
     reply(JSON.stringify(devices));
