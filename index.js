@@ -95,6 +95,24 @@ server.route({
 });
 
 server.route({
+  method: 'POST',
+  path: '/newConfig',
+  handler: function  (request, reply) {
+    confCollection.findOne({'name':request.params.name}, function(err, item) {
+      if(!err) {
+        console.info(err);
+      } else {
+        if(item) {
+        }
+      }
+    });
+    confCollection.save(request.payload);
+    console.info(request.payload);
+    reply();
+  }
+});
+
+server.route({
   method: 'GET',
   path: '/devices',
   handler: function (request, reply) {
@@ -112,12 +130,21 @@ server.route({
 
 server.route({
   method: 'POST',
-  path: '/newConfig',
-  handler: function  (request, reply) {
-    confCollection.save(request.payload);
-    console.info(request.payload);
-    reply();
-  }
+  path: '/devices',
+  handler: function(request, reply) {
+    deviceCollection.updateOne(
+      {"_id" : new ObjectID(request.payload._id)},
+      {
+        $set: {"config" : request.payload.config},
+        $currentDate: { "lastModified": true }
+      },
+      function(err, results) {
+        if(err) {
+          console.error(err)
+        }
+        reply();
+      });
+    }
 });
 
 server.start(function () {
