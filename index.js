@@ -137,19 +137,18 @@ server.route({
     method: 'POST',
     path: '/devices',
     handler: function(request, reply) {
-        deviceCollection.updateOne({
+        console.log(request.payload);
+        deviceCollection.updateOne(
+            {
                 "_id": new ObjectID(request.payload._id)
-            }, {
-                $set: {
-                    "config": request.payload.config
-                },
-                $currentDate: {
-                    "lastModified": true
-                }
+            },
+            {
+                $set: { "config": request.payload.config },
+                $currentDate: {"lastModified": true}
             },
             function(err, results) {
                 if (err) {
-                    console.error(err)
+                    console.error(err);
                 }
                 reply();
             });
