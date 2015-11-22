@@ -56,9 +56,8 @@ server.route({
         confCollection.find().toArray(function(err, items) {
             if (err) {
                 console.error(err);
-                return;
+                reply().code(500);
             } else {
-                console.info(items);
                 reply(_.map(items, 'name'));
             }
         });
