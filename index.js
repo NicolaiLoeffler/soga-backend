@@ -96,10 +96,24 @@ server.route({
     method: 'PUT',
     path: '/configs',
     handler: function(request, reply) {
-        console.info(request.payload);
-        request.payload._id = new ObjectID(request.payload._id);
-        confCollection.save(request.payload);
-        reply();
+        confCollection.updateOne({
+                "_id": new ObjectID(request.payload._id)
+            }, {
+                $set: {
+                    "waterlevel": request.payload.waterlevel
+                },
+                $currentDate: {
+                    "lastModified": true
+                }
+            },
+            function(err, results) {
+                if (err) {
+                    console.error(err);
+                    reply('Failed updating').code(400);
+                } else {
+                    reply('Configuration updated');
+                }
+            });
     }
 });
 
