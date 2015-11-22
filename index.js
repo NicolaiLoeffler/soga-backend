@@ -18,6 +18,11 @@ MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
                 console.error(err);
             }
         });
+        confCollection.createIndex({
+            "name": 1
+        }, {
+            unique: true
+        });
         deviceCollection = db.collection('devices', function(err, collection) {
             if (err) {
                 console.error(err);
@@ -100,20 +105,22 @@ server.route({
 
 server.route({
     method: 'POST',
-    path: '/newConfig',
+    path: '/configs',
     handler: function(request, reply) {
-        confCollection.findOne({
-            'name': request.params.name
-        }, function(err, item) {
-            if (!err) {
-                console.info(err);
-            } else {
-                if (item) {}
+        confCollection.insert(
+            request.payload,
+            function(err, result) {
+                if (err) {
+                    if (err.code == 11000) {
+                        reply('Configuration with this name already exists').code(409);
+                    } else {
+                        console.error(err);
+                    }
+                } else {
+                    reply('Configuration created');
+                }
             }
-        });
-        confCollection.save(request.payload);
-        console.info(request.payload);
-        reply();
+        );
     }
 });
 
@@ -138,13 +145,15 @@ server.route({
     path: '/devices',
     handler: function(request, reply) {
         console.log(request.payload);
-        deviceCollection.updateOne(
-            {
+        deviceCollection.updateOne({
                 "_id": new ObjectID(request.payload._id)
-            },
-            {
-                $set: { "config": request.payload.config },
-                $currentDate: {"lastModified": true}
+            }, {
+                $set: {
+                    "config": request.payload.config
+                },
+                $currentDate: {
+                    "lastModified": true
+                }
             },
             function(err, results) {
                 if (err) {
