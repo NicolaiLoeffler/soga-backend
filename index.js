@@ -7,6 +7,49 @@ var server = new Hapi.Server();
 var confCollection;
 var deviceCollection;
 
+server.connection({
+    port: 3000,
+    routes: {
+        cors: {
+            origin: ['http://localhost:8100']
+        }
+    }
+});
+
+var io = require('socket.io')(server.listener);
+
+io.on('connection', function(socket) {
+    console.info('connection');
+    var iFrequency = 5000; // expressed in miliseconds
+    var myInterval = 0;
+
+    startLoop();
+
+    // STARTS and Resets the loop if any
+    function startLoop() {
+        if (myInterval > 0) clearInterval(myInterval); // stop
+        myInterval = setInterval(doSomething, iFrequency); // run
+    }
+
+    function doSomething() {
+        var n = Math.floor(Math.random() * 100) + 1 ;
+        socket.emit('device:waterlevel', {waterlevel: n, device: "Arduino_2"});
+        console.info(n);
+    }
+
+    socket.on('device:online', function(data) {
+        console.log(data.name);
+    });
+    socket.on('device:sensor-value', function(data) {
+        console.log(data.type + ' ' + data.value);
+    });
+});
+
+server.start(function() {
+    console.log('Server running at:', server.info.uri);
+});
+
+
 
 // Connect to the db
 MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
@@ -37,15 +80,6 @@ MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
         });
     } else {
         console.error(err);
-    }
-});
-
-server.connection({
-    port: 3000,
-    routes: {
-        cors: {
-            origin: ['http://localhost:8100']
-        }
     }
 });
 
@@ -175,8 +209,4 @@ server.route({
                 reply();
             });
     }
-});
-
-server.start(function() {
-    console.log('Server running at:', server.info.uri);
 });
