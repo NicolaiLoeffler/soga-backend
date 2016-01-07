@@ -162,9 +162,10 @@ server.route({
                         reply('Configuration with this name already exists').code(409);
                     } else {
                         console.error(err);
+                        reply().code(500);
                     }
                 } else {
-                    reply('Configuration created');
+                    reply('Configuration created').code(201);
                 }
             }
         );
