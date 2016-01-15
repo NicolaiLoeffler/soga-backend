@@ -19,29 +19,23 @@ server.connection({
 var io = require('socket.io')(server.listener);
 
 io.on('connection', function(socket) {
-    console.info('connection');
-    var iFrequency = 5000; // expressed in miliseconds
-    var myInterval = 0;
-
-    startLoop();
-
-    // STARTS and Resets the loop if any
-    function startLoop() {
-        if (myInterval > 0) clearInterval(myInterval); // stop
-        myInterval = setInterval(doSomething, iFrequency); // run
-    }
-
-    function doSomething() {
-        var n = Math.floor(Math.random() * 100) + 1 ;
-        socket.emit('device:waterlevel', {waterlevel: n, device: "Arduino_2"});
-        console.info(n);
-    }
+    console.log('New connection from ' + socket.request.connection.remoteAddress);
 
     socket.on('device:online', function(data) {
         console.log(data.name);
     });
-    socket.on('device:sensor-value', function(data) {
-        console.log(data.type + ' ' + data.value);
+
+    socket.on("sensor:moisture", function(data) {
+        console.log(data.value);
+    });
+
+    socket.on('sensor:waterlevel', function(data) {
+        console.log(data);
+        socket.broadcast.emit('backend:waterlevel', data);
+    });
+
+    socket.on('disconnect', function(socket) {
+        console.log('Client disconnected');
     });
 });
 
