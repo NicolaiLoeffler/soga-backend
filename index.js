@@ -18,7 +18,10 @@ server.connection({
 
 var io = require('socket.io')(server.listener);
 
+var _socket;
+
 io.on('connection', function(socket) {
+    _socket = socket;
     console.log('New connection from ' + socket.request.connection.remoteAddress);
 
     socket.on('device:online', function(data) {
@@ -26,11 +29,11 @@ io.on('connection', function(socket) {
     });
 
     socket.on("sensor:moisture", function(data) {
-        console.log(data.value);
+        //console.log(data.value);
     });
 
     socket.on('sensor:waterlevel', function(data) {
-        console.log(data);
+        //console.log(data);
         socket.broadcast.emit('backend:waterlevel', data);
     });
 
@@ -198,10 +201,22 @@ server.route({
                 }
             },
             function(err, results) {
+                console.log('received configuration from device'+request.payload.config);
+                reply();
                 if (err) {
                     console.error(err);
                 }
-                reply();
-            });
-    }
+                confCollection.findOne({
+                    'name': request.payload.config
+                  }
+                    , function(err, result) {
+                        if(err) {
+                          log.error(err);
+                        }
+                        console.log(result);
+                        console.log('emmiting '+result.moisture);
+                        _socket.broadcast.emit('backend:configuration', {moisture: result.moisture});
+                      });
+                  });
+            }
 });
