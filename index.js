@@ -52,29 +52,13 @@ server.start(function() {
 MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
     if (!err) {
         console.log("Connected to MongoDB");
-        db.dropDatabase();
-        confCollection = db.collection('configurations', function(err, collection) {
-            if (err) {
-                console.error(err);
-            }
-        });
+        confCollection = db.collection('configurations');
         confCollection.createIndex({
             "name": 1
         }, {
             unique: true
         });
-        deviceCollection = db.collection('devices', function(err, collection) {
-            if (err) {
-                console.error(err);
-            } else {
-                collection.insert({
-                    "name": "Arduino_2",
-                    "config": "Tomate",
-                    "status": "connected",
-                    "waterlevel": "50"
-                });
-            }
-        });
+        deviceCollection = db.collection('devices');
     } else {
         console.error(err);
     }
@@ -124,13 +108,13 @@ server.route({
 
 server.route({
     method: 'PUT',
-    path: '/configs',
+    path: '/configs/{name}',
     handler: function(request, reply) {
         confCollection.updateOne({
                 "_id": new ObjectID(request.payload._id)
             }, {
                 $set: {
-                    "waterlevel": request.payload.waterlevel
+                    "moisture": request.payload.moisture
                 },
                 $currentDate: {
                     "lastModified": true
