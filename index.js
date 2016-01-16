@@ -54,51 +54,51 @@ server.start(function() {
 });
 
 
-
 // Connect to the db
-MongoClient.connect("mongodb://127.0.0.1:27017/soga", function(err, db) {
-    if (!err) {
+MongoClient.connect("mongodb://127.0.0.1:27017/soga")
+    .then(db => {
         console.log("Connected to MongoDB");
+        deviceCollection = db.collection('devices');
         confCollection = db.collection('configurations');
         confCollection.createIndex({
             "name": 1
         }, {
             unique: true
         });
-        deviceCollection = db.collection('devices');
-    } else {
+    })
+    .catch(err => {
         console.error(err);
-    }
-});
+    });
+
 
 server.route({
     method: 'GET',
     path: '/configs',
     handler: function(request, reply) {
-        confCollection.find().toArray(function(err, items) {
-            if (err) {
+        confCollection.find().toArray()
+            .then(items => {
+                reply(_.map(items, 'name'));
+            })
+            .catch(err => {
                 console.error(err);
                 reply().code(500);
-            } else {
-                reply(_.map(items, 'name'));
-            }
-        });
+            });
     }
-});
+})
 
 server.route({
     method: 'GET',
     path: '/configs/{name}',
     handler: function(request, reply) {
         confCollection.findOne({
-            'name': request.params.name
-        }, function(err, item) {
-            if (!err) {
+                'name': request.params.name
+            })
+            .then(item => {
                 reply(item);
-            } else {
-                reply();
-            }
-        });
+            })
+            .catch(err => {
+                reply().code(404);
+            });
     }
 });
 
@@ -107,9 +107,14 @@ server.route({
     path: '/configs/{name}',
     handler: function(request, reply) {
         confCollection.remove({
-            'name': request.params.name
-        });
-        reply();
+                'name': request.params.name
+            })
+            .then(() => {
+                reply();
+            })
+            .catch(err => {
+                reply().code(404);
+            });
     }
 });
 
@@ -126,14 +131,13 @@ server.route({
                 $currentDate: {
                     "lastModified": true
                 }
-            },
-            function(err, results) {
-                if (err) {
-                    console.error(err);
-                    reply('Failed updating').code(400);
-                } else {
-                    reply('Configuration updated');
-                }
+            })
+            .then(() => {
+                reply('Configuration updated');
+            })
+            .catch(err => {
+                console.error(err);
+                reply('Failed updating').code(400);
             });
     }
 });
@@ -142,21 +146,18 @@ server.route({
     method: 'POST',
     path: '/configs',
     handler: function(request, reply) {
-        confCollection.insert(
-            request.payload,
-            function(err, result) {
-                if (err) {
-                    if (err.code == 11000) {
-                        reply('Configuration with this name already exists').code(409);
-                    } else {
-                        console.error(err);
-                        reply().code(500);
-                    }
+        confCollection.insert(request.payload)
+            .then(result => {
+                reply('Configuration created').code(201);
+            })
+            .catch(err => {
+                if (err.code == 11000) {
+                    reply('Configuration with this name already exists').code(409);
                 } else {
-                    reply('Configuration created').code(201);
+                    console.error(err);
+                    reply().code(500);
                 }
-            }
-        );
+            });
     }
 });
 
@@ -164,15 +165,13 @@ server.route({
     method: 'GET',
     path: '/devices',
     handler: function(request, reply) {
-        deviceCollection.find().toArray(function(err, items) {
-            if (err) {
-                console.log('bad stuff happend');
-                return;
-            } else {
-                console.info(items);
+        deviceCollection.find().toArray()
+            .then(items => {
                 reply(items);
-            }
-        });
+            })
+            .catch(err => {
+                reply().code(500);
+            });
     }
 });
 
@@ -180,7 +179,7 @@ server.route({
     method: 'POST',
     path: '/devices',
     handler: function(request, reply) {
-        console.log(request.payload);
+
         deviceCollection.updateOne({
                 "_id": new ObjectID(request.payload._id)
             }, {
@@ -190,24 +189,28 @@ server.route({
                 $currentDate: {
                     "lastModified": true
                 }
-            },
-            function(err, results) {
-                console.log('received configuration from device'+request.payload.config);
+            })
+            .then(() => {
                 reply();
-                if (err) {
-                    console.error(err);
-                }
-                confCollection.findOne({
-                    'name': request.payload.config
-                  }
-                    , function(err, result) {
-                        if(err) {
-                          log.error(err);
-                        }
-                        console.log(result);
-                        console.log('emmiting '+result.moisture);
-                        _socket.broadcast.emit('backend:configuration', {moisture: result.moisture});
-                      });
-                  });
-            }
+            })
+            .catch(err => {
+                console.error(err);
+                reply().code(500);
+            });
+
+        confCollection.findOne({
+                'name': request.payload.config
+            })
+            .then(config => {
+                console.log(config);
+                console.log('emmiting ' + config.moisture);
+                _socket.broadcast.emit('backend:configuration', {
+                    moisture: config.moisture
+                });
+            })
+            .catch(err => {
+                console.error(err);
+            })
+
+    }
 });
