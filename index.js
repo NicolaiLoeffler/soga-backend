@@ -40,6 +40,13 @@ io.on('connection', function(socket) {
     socket.on('disconnect', function(socket) {
         console.log('Client disconnected');
     });
+
+    /* ******* Chat ********* */
+    socket.on('chat:newMessage', function(message) {
+        console.log('received chat message (' + message.content + ') from ' + message.user);
+        socket.broadcast.emit('chat:message', message);
+    });
+
 });
 
 server.start(function() {
