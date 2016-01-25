@@ -19,6 +19,7 @@ server.connection({
 
 var io = require('socket.io')(server.listener);
 
+var lowWaterSent = false;
 
 io.on('connection', function(socket) {
     console.log('New connection from ' + socket.request.connection.remoteAddress);
@@ -28,11 +29,28 @@ io.on('connection', function(socket) {
     });
 
     socket.on("sensor:moisture", function(data) {
-        socket.broadcast.emit('backendend:moisture');
+        socket.broadcast.emit('backend:moisture', data);
     });
 
     socket.on('sensor:waterlevel', function(data) {
         socket.broadcast.emit('backend:waterlevel', data);
+        var criticalLevel = 40;
+        if(data.value < criticalLevel && !lowWaterSent) {
+            socket.broadcast.emit('chat:message', {
+                user: '',
+                system: true,
+                content: 'Critical water-level below 40!'
+            });
+            lowWaterSent = true;
+        }
+        if(data.value > 40 && lowWaterSent) {
+            socket.broadcast.emit('chat:message', {
+              user: '',
+              system: true,
+              content: 'Water tank was filled!'
+            });
+            lowWaterSent = false;
+        }
     });
 
     socket.on('disconnect', function() {
