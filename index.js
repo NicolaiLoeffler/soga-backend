@@ -1,13 +1,13 @@
-var Hapi = require('hapi');
 var _ = require('lodash');
 var MongoClient = require('mongodb').MongoClient;
 var ObjectID = require('mongodb').ObjectID;
 
-var server = new Hapi.Server();
 var confCollection;
 var deviceCollection;
 var msgCollection;
 
+var Hapi = require('hapi');
+var server = new Hapi.Server();
 server.connection({
     port: 3000,
     routes: {
@@ -19,10 +19,8 @@ server.connection({
 
 var io = require('socket.io')(server.listener);
 
-var _socket;
 
 io.on('connection', function(socket) {
-    _socket = socket;
     console.log('New connection from ' + socket.request.connection.remoteAddress);
 
     socket.on('device:online', function(data) {
@@ -30,11 +28,10 @@ io.on('connection', function(socket) {
     });
 
     socket.on("sensor:moisture", function(data) {
-        //console.log(data.value);
+        socket.broadcast.emit('backendend:moisture');
     });
 
     socket.on('sensor:waterlevel', function(data) {
-        //console.log(data);
         socket.broadcast.emit('backend:waterlevel', data);
     });
 
