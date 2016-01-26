@@ -5,6 +5,7 @@ var ObjectID = require('mongodb').ObjectID;
 var confCollection;
 var deviceCollection;
 var msgCollection;
+var wlCollection;
 
 var Hapi = require('hapi');
 var server = new Hapi.Server();
@@ -20,6 +21,29 @@ server.connection({
 var io = require('socket.io')(server.listener);
 
 var lowWaterSent = false;
+var systemMessage = {
+    user: '',
+    system: true,
+    content: ''
+};
+
+var waterLevel = {
+    value: 10
+};
+
+var dayInMs = 3000;//86400000 ;
+
+setInterval(persistsWaterLevel,dayInMs);
+
+function persistsWaterLevel() {
+  wlCollection.insertOne(_.cloneDeep(waterLevel))
+      .then(result => {
+          console.log('waterlevel stored' + waterLevel.value);
+      })
+      .catch(err => {
+          console.error(err);
+      });
+}
 
 io.on('connection', function(socket) {
     console.log('New connection from ' + socket.request.connection.remoteAddress);
@@ -33,22 +57,19 @@ io.on('connection', function(socket) {
     });
 
     socket.on('sensor:waterlevel', function(data) {
+        waterLevel.value = data.value;
         socket.broadcast.emit('backend:waterlevel', data);
         var criticalLevel = 40;
         if(data.value < criticalLevel && !lowWaterSent) {
-            socket.broadcast.emit('chat:message', {
-                user: '',
-                system: true,
-                content: 'Critical water-level below 40!'
-            });
+            systemMessage.content = 'Critical water-level below '+criticalLevel;
+            storeMessage(systemMessage);
+            socket.broadcast.emit('chat:message', systemMessage);
             lowWaterSent = true;
         }
         if(data.value > 40 && lowWaterSent) {
-            socket.broadcast.emit('chat:message', {
-              user: '',
-              system: true,
-              content: 'Water tank was filled!'
-            });
+            systemMessage.content = 'Water tank was filled!';
+            storeMessage(systemMessage);
+            socket.broadcast.emit('chat:message', systemMessage);
             lowWaterSent = false;
         }
     });
@@ -76,6 +97,8 @@ function storeMessage(message) {
           });
 }
 
+
+
 server.start(function() {
     console.log('Server running at:', server.info.uri);
 });
@@ -88,6 +111,8 @@ MongoClient.connect("mongodb://127.0.0.1:27017/soga")
         deviceCollection = db.collection('devices');
         confCollection = db.collection('configurations');
         msgCollection = db.collection('messages');
+        wlCollection = db.collection('waterlevels');
+        db.collection('waterlevels').remove();
         confCollection.createIndex({
             "name": 1
         }, {
@@ -249,6 +274,21 @@ server.route({
     path: '/messages',
     handler: function(request, reply) {
         msgCollection.find().sort({_id:1}).limit(50).toArray()
+            .then(result => {
+                reply(result);
+            })
+            .catch(err => {
+                console.log(err);
+                reply().code(500);
+            });
+    }
+});
+
+server.route({
+    method: 'GET',
+    path: '/waterlevels',
+    handler: function(request, reply) {
+        wlCollection.find().sort({_id:-1}).limit(7).toArray()
             .then(result => {
                 reply(result);
             })
