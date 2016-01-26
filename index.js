@@ -32,6 +32,7 @@ var waterLevel = {
 };
 
 var dayInMs = 3000;//86400000 ;
+var galileoIp;
 
 setInterval(persistsWaterLevel,dayInMs);
 
@@ -49,7 +50,11 @@ io.on('connection', function(socket) {
     console.log('New connection from ' + socket.request.connection.remoteAddress);
 
     socket.on('device:online', function(data) {
-        console.log(data.name);
+        if(data.name === 'Galileo') {
+            console.log('Galileo:online');
+            galileoIp = socket.request.connection.remoteAddress;
+            socket.broadcast.emit('device:online', data);
+        }
     });
 
     socket.on("sensor:moisture", function(data) {
@@ -76,6 +81,10 @@ io.on('connection', function(socket) {
 
     socket.on('disconnect', function() {
         console.log('Client disconnected '+ socket.request.connection.remoteAddress);
+        if(socket.request.connection.remoteAddress === galileoIp) {
+          console.log('Galileo:offline');
+          socket.broadcast.emit('device:offline', {name: 'Galileo'});
+        }
     });
 
     /* ******* Chat ********* */
