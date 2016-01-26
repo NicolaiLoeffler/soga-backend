@@ -1,14 +1,18 @@
 var _ = require('lodash');
+var Hapi = require('hapi');
 var MongoClient = require('mongodb').MongoClient;
 var ObjectID = require('mongodb').ObjectID;
 
+var server = new Hapi.Server();
+
+
+/** MongoDB collections **/
 var confCollection;
 var deviceCollection;
 var msgCollection;
 var wlCollection;
 
-var Hapi = require('hapi');
-var server = new Hapi.Server();
+// Initialize hapi server
 server.connection({
     port: 3000,
     routes: {
@@ -18,9 +22,13 @@ server.connection({
     }
 });
 
+/** Initialize socket.io with http server of hapi **/
 var io = require('socket.io')(server.listener);
 
 var lowWaterSent = false;
+var dayInMs = 86400000;
+var galileoIp;
+
 var systemMessage = {
     user: '',
     system: true,
@@ -31,26 +39,32 @@ var waterLevel = {
     value: 10
 };
 
-var dayInMs = 3000;//86400000 ;
-var galileoIp;
+// Persist water level each day
+setInterval(persistsWaterLevel, dayInMs);
 
-setInterval(persistsWaterLevel,dayInMs);
-
-function persistsWaterLevel() {
-  wlCollection.insertOne(_.cloneDeep(waterLevel))
-      .then(result => {
-          console.log('waterlevel stored' + waterLevel.value);
-      })
-      .catch(err => {
-          console.error(err);
-      });
-}
+// Connect to mongodb
+MongoClient.connect("mongodb://127.0.0.1:27017/soga")
+    .then(db => {
+        console.log("Connected to MongoDB");
+        deviceCollection = db.collection('devices');
+        confCollection = db.collection('configurations');
+        msgCollection = db.collection('messages');
+        wlCollection = db.collection('waterlevels');
+        confCollection.createIndex({
+            "name": 1
+        }, {
+            unique: true
+        });
+    })
+    .catch(err => {
+        console.error(err);
+    });
 
 io.on('connection', function(socket) {
     console.log('New connection from ' + socket.request.connection.remoteAddress);
 
     socket.on('device:online', function(data) {
-        if(data.name === 'Galileo') {
+        if (data.name === 'Galileo') {
             console.log('Galileo:online');
             galileoIp = socket.request.connection.remoteAddress;
             socket.broadcast.emit('device:online', data);
@@ -65,13 +79,13 @@ io.on('connection', function(socket) {
         waterLevel.value = data.value;
         socket.broadcast.emit('backend:waterlevel', data);
         var criticalLevel = 40;
-        if(data.value < criticalLevel && !lowWaterSent) {
-            systemMessage.content = 'Critical water-level below '+criticalLevel;
+        if (data.value < criticalLevel && !lowWaterSent) {
+            systemMessage.content = 'Critical water-level below ' + criticalLevel;
             storeMessage(systemMessage);
             socket.broadcast.emit('chat:message', systemMessage);
             lowWaterSent = true;
         }
-        if(data.value > 40 && lowWaterSent) {
+        if (data.value > 40 && lowWaterSent) {
             systemMessage.content = 'Water tank was filled!';
             storeMessage(systemMessage);
             socket.broadcast.emit('chat:message', systemMessage);
@@ -80,10 +94,12 @@ io.on('connection', function(socket) {
     });
 
     socket.on('disconnect', function() {
-        console.log('Client disconnected '+ socket.request.connection.remoteAddress);
-        if(socket.request.connection.remoteAddress === galileoIp) {
-          console.log('Galileo:offline');
-          socket.broadcast.emit('device:offline', {name: 'Galileo'});
+        console.log('Client disconnected ' + socket.request.connection.remoteAddress);
+        if (socket.request.connection.remoteAddress === galileoIp) {
+            console.log('Galileo:offline');
+            socket.broadcast.emit('device:offline', {
+                name: 'Galileo'
+            });
         }
     });
 
@@ -96,43 +112,35 @@ io.on('connection', function(socket) {
 
 });
 
+
+// Helper functions
 function storeMessage(message) {
-      msgCollection.insertOne(message)
-          .then(result => {
-              console.log('message stored');
-          })
-          .catch(err => {
-              console.error(err);
-          });
+    msgCollection.insertOne(message)
+        .then(result => {
+            console.log('message stored');
+        })
+        .catch(err => {
+            console.error(err);
+        });
 }
 
+function persistsWaterLevel() {
+    wlCollection.insertOne(_.cloneDeep(waterLevel))
+        .then(result => {
+            console.log('waterlevel stored' + waterLevel.value);
+        })
+        .catch(err => {
+            console.error(err);
+        });
+}
 
-
+// Start Hapi server
 server.start(function() {
     console.log('Server running at:', server.info.uri);
 });
 
 
-// Connect to the db
-MongoClient.connect("mongodb://127.0.0.1:27017/soga")
-    .then(db => {
-        console.log("Connected to MongoDB");
-        deviceCollection = db.collection('devices');
-        confCollection = db.collection('configurations');
-        msgCollection = db.collection('messages');
-        wlCollection = db.collection('waterlevels');
-        db.collection('waterlevels').remove();
-        confCollection.createIndex({
-            "name": 1
-        }, {
-            unique: true
-        });
-    })
-    .catch(err => {
-        console.error(err);
-    });
-
-
+/*** Config routes ***/
 server.route({
     method: 'GET',
     path: '/configs',
@@ -223,7 +231,7 @@ server.route({
     }
 });
 
-
+/** device routes **/
 server.route({
     method: 'GET',
     path: '/devices',
@@ -278,11 +286,14 @@ server.route({
     }
 });
 
+/** chat route to get the newest 50 messages **/
 server.route({
     method: 'GET',
     path: '/messages',
     handler: function(request, reply) {
-        msgCollection.find().sort({_id:1}).limit(50).toArray()
+        msgCollection.find().sort({
+                _id: -1
+            }).limit(50).toArray()
             .then(result => {
                 reply(result);
             })
@@ -293,11 +304,14 @@ server.route({
     }
 });
 
+/** waterlevel route returning the 7 newest waterlevels **/
 server.route({
     method: 'GET',
     path: '/waterlevels',
     handler: function(request, reply) {
-        wlCollection.find().sort({_id:-1}).limit(7).toArray()
+        wlCollection.find().sort({
+                _id: -1
+            }).limit(7).toArray()
             .then(result => {
                 reply(result);
             })
